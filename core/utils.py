@@ -13,11 +13,11 @@ SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT)
 #============================================================
 
 # utility function to count tokens in a text
-def count_token(text: str, tokenizer_path: str = 'qwen3_tokenizer') -> int:
+def count_token(text: str, tokenizer_path: str = 'temp/qwen3_tokenizer') -> int:
     '''Count the number of tokens in a given text using a specified tokenizer.
     
     :param text: input text to be tokenized.
-    :param tokenizer_path: path or name of the tokenizer to use (default is 'qwen3_tokenizer').
+    :param tokenizer_path: path or name of the tokenizer to use (default is 'temp/qwen3_tokenizer').
     :return: number of tokens in the input text.
 
     >> count_token('Halo, apa kabar?')
@@ -54,7 +54,7 @@ async def fetch_html(url: str, session: requests.AsyncSession) -> str:
             parsed_url = urlparse(url)
             raw_domain = parsed_url.netloc
             if 'pom.go.id' in raw_domain:
-                response = await session.get(url, impersonate=browser, verify=False)  # Disable SSL verification for pom.go.id
+                response = await session.get(url, impersonate=browser, verify = False)  # Disable SSL verification for pom.go.id
             else:
                 response = await session.get(url, impersonate=browser)
             

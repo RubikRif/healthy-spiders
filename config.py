@@ -3,20 +3,32 @@ BATCH_SIZE = 100
 
 MAX_CONCURRENT = 5
 
-# website-specific config
+OUTPUT_PATH = 'output/output.jsonl'
+
+RESET_FIRST_PATTERNED_PAGINATION = True
+
+# website-specific configs
+# every website's config must contain:
+# - domain: the domain of the website
+# - pages_2b_crawled: dictionary with keys are representing patterned paginations,
+# 					  and values are representing max pages to be crawled
+# - contents_2b_scraped: dictionary with keys are representing path of the file consisting endpoints of url,
+# 					 	 and values are representing max pages to be scraped or None
 ALODOKTER_CONFIG = {
 	'domain': 'alodokter.com',
 	'pages_2b_crawled': {
 		'/page/': 200, # article, max 1162
 		'/komunitas/diskusi/penyakit/page/': 200 # patient-doctor discussion, max 7423
-	}
+	},
+    'contents_2b_scraped': None
 } 
 
 BIOFARMA_CONFIG = {
 	'domain': 'biofarma.co.id',
 	'pages_2b_crawled': {
 		'/id/artikel-kesehatan/page/': 19 # article, max 19
-	}
+	},
+    'contents_2b_scraped': None
 } 
 
 BPOM_CONFIG = {
@@ -25,15 +37,18 @@ BPOM_CONFIG = {
 		'/penjelasan-publik?page=': 10, # public explanation, max 10,
 		'/siaran-pers?page=': 25, # press release, max 25,
 		'/berita?page=': 239 # news, max 239
-	}
+	},
+    'contents_2b_scraped': None
 } 
 
+# special
 HALODOC_CONFIG = {
 	'domain': 'halodoc.com',
 	'pages_2b_crawled': {
 		'https://customers.api.halodoc.com/magneto-api/cms/categories?per_page=100&search_text=': 26 
         # article, max 26 (a-z)
-	}
+	},
+    'contents_2b_scraped': None
 }
 
 HELLOSEHAT_CONFIG = {
@@ -69,7 +84,9 @@ HELLOSEHAT_CONFIG = {
 		'/lansia/?page=': 10, # max 15
 		'/herbal-alternatif/?page=': 10, # max 36
 		'/pola-tidur/?page=': 10, # max 23
-		'/sehat/?page=': 10, # max 180
-		'/obat-suplemen/?page=': 10, # max 1391
+		'/sehat/?page=': 10 # max 180
+	},
+    'contents_2b_scraped': {
+        'temp/obat_suplemen.txt': 10 # max 1391
 	}
 } 

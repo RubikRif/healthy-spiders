@@ -1,4 +1,8 @@
 import aiosqlite
+from config import (ALODOKTER_CONFIG,
+                    BIOFARMA_CONFIG,
+                    BPOM_CONFIG,
+                    HELLOSEHAT_CONFIG)
 from loguru import logger
 
 DB_PATH = "queue.db"
@@ -10,26 +14,24 @@ async def init_db():
     '''Initialize pagination queue table and URL queue table if they don't exist.'''
     
     async with aiosqlite.connect(DB_PATH) as db:
-        # create pagination_queue table
-        await db.execute('''
+        await db.executescript('''
+            -- create pagination_queue table
             CREATE TABLE IF NOT EXISTS pagination_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 pagination_url TEXT UNIQUE NOT NULL,
                 domain TEXT NOT NULL,
                 category TEXT NOT NULL DEFAULT 'article',
                 status TEXT NOT NULL DEFAULT 'pending'
-            )
-        ''')
+            );
 
-        # create url_queue table
-        await db.execute('''
+            -- create url_queue table
             CREATE TABLE IF NOT EXISTS url_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 url TEXT UNIQUE NOT NULL,
                 domain TEXT NOT NULL,
                 category TEXT NOT NULL DEFAULT 'article',
                 status TEXT NOT NULL DEFAULT 'pending'
-            )
+            );
         ''')
         
         await db.commit()
@@ -162,16 +164,69 @@ async def update_url_status(task_results: list):
 
 #============================================================
 
-# reset n-th first pagination status
-async def reset_pagination_status(n: int):
+# utility database functions
+
+# count success scraped urls
+async def count_success_url() -> int:
+    '''Count URLs that successfully have been scraped.
+    
+    :return: integer indicating numbers of urls that successfully have been scraped.
+    '''
 
     async with aiosqlite.connect(DB_PATH) as db:
-        for i in range(1, n + 1):
+        cursor = await db.execute('''
+                    SELECT COUNT(*)
+                    FROM url_queue
+                    WHERE status = 'success'
+                ''')
+    
+        success = await cursor.fetchone()[0]
+
+    return success
+
+# count failed scraped urls
+async def count_failed_url():
+    '''Count URLs that failed to scrape.
+    
+    :return: integer indicating numbers of urls that failed to scrape.
+    '''
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute('''
+                    SELECT COUNT(*)
+                    FROM url_queue
+                    WHERE status = 'failed'
+                ''')
+    
+        failed = await cursor.fetchone()[0]
+    
+    return failed
+
+# reset first patterned pagination status
+async def reset_first_patterned_pagination_status():
+    '''Reset the first patterned pagination status to get new URL if there is an update in the website.'''
+
+    configs = [ALODOKTER_CONFIG, BIOFARMA_CONFIG, BPOM_CONFIG, HELLOSEHAT_CONFIG] 
+    # we don't include halodoc config, since its crawling-scraping mechanism is different
+
+    first_patterned_paginations = []
+    for config in configs:
+        domain = config['domain']
+        pages_2b_crawled = list(config['pages_2b_crawled'].keys())
+
+        for page_2b_crawled in pages_2b_crawled:
+            if domain == 'hellosehat.com':
+                first_patterned_paginations.append(f'https://{domain}{page_2b_crawled}1')
+                    
+            else:
+                first_patterned_paginations.append(f'https://www.{domain}{page_2b_crawled}1')
+                    
+    async with aiosqlite.connect(DB_PATH) as db:
+        for first_patterned_pagination in first_patterned_paginations:
             await db.execute('''
-            UPDATE pagination_queue
-            SET status = 'pending'
-            WHERE domain = 'alodokter.com' 
-                AND 
-                pagination_url LIKE                              
-            ''')
-    pass
+                UPDATE pagination_queue
+                SET status = 'pending'
+                WHERE pagination_url = ?
+            ''', (first_patterned_pagination,))
+        
+        await db.commit()

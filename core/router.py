@@ -29,6 +29,7 @@ async def crawler_router(url: str, domain: str, category: str, session):
     :param domain: domain of the website to determine which crawler to use.
     :param category: category of the content to be crawled (e.g., article, discussion).
     :param session: an instance of requests.AsyncSession for making http requests.
+    :return: a boolean indicating whether the crawling was successful or not.
     '''
     if domain in FUNCTION_REGISTRY:
         crawler_func = FUNCTION_REGISTRY[domain]['crawler']
@@ -37,7 +38,7 @@ async def crawler_router(url: str, domain: str, category: str, session):
         
     else:
         logger.error(f"No crawler function registered for domain: {domain}")
-        return
+        return False
 
 #============================================================
 
@@ -51,6 +52,7 @@ async def scraper_router(url: str, domain: str, category: str, session, file_loc
     :param session: an instance of requests.AsyncSession for making http requests.
     :param file_lock: a lock for synchronizing file access.
     :param output_path: the path where the scraped data will be saved.
+    :return: a boolean indicating whether the scraping was successful or not.
     '''
     if domain in FUNCTION_REGISTRY:
         scraper_func = FUNCTION_REGISTRY[domain]['scraper']
@@ -59,4 +61,4 @@ async def scraper_router(url: str, domain: str, category: str, session, file_loc
         
     else:
         logger.error(f"No scraper function registered for domain: {domain}")
-        return
+        return False

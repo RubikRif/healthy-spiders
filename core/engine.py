@@ -1,23 +1,28 @@
 import asyncio
-from config import (BATCH_SIZE, 
+from config import (BATCH_SIZE,
+                    OUTPUT_PATH, 
+                    RESET_FIRST_PATTERNED_PAGINATION,
                     ALODOKTER_CONFIG, 
                     BIOFARMA_CONFIG, 
                     BPOM_CONFIG, 
                     HALODOC_CONFIG, 
                     HELLOSEHAT_CONFIG)
-from .database import (init_db, 
-                       save_pagination, 
-                       get_pending_pagination, 
-                       update_pagination_status, 
-                       get_pending_url,
-                       update_url_status)
+from core.database import (init_db, 
+                           save_pagination, 
+                           get_pending_pagination, 
+                           update_pagination_status, 
+                           get_pending_url,
+                           update_url_status,
+                           count_success_url,
+                           count_failed_url,
+                           reset_first_patterned_pagination_status)
 from loguru import logger
-from .router import crawler_router, scraper_router
+from core.router import crawler_router, scraper_router
 from spiders.alodokter import get_alodokter_pagination
 from spiders.biofarma import get_biofarma_pagination
 from spiders.bpom import get_bpom_pagination
 from spiders.halodoc import get_halodoc_pagination
-from spiders.hellosehat import get_hellosehat_pagination
+from spiders.hellosehat import get_hellosehat_pagination, update_obat_suplemen
 
 #============================================================
 
@@ -76,6 +81,8 @@ async def run_crawler(session):
     
         await update_pagination_status(status_updates)
 
+        logger.info('Crawling has been completed.')
+
 #============================================================
 
 # main scraper function
@@ -88,8 +95,9 @@ async def run_scraper(session):
 
     logger.info("Starting scraper general...")
 
-    # initialize the database (create tables if they don't exist)
-    await init_db()
+    # special treatment for obat-suplemen from hellosehat.com
+    # update the obat-suplemen
+    await update_obat_suplemen()
 
     while True:
         # get a batch of pending urls from the database
@@ -103,11 +111,14 @@ async def run_scraper(session):
 
         # dispatch scraping tasks to the appropriate scraper functions via the router
         tasks = []
+        file_lock = asyncio.Lock
         for url in batch_pending_urls:
             tasks.append(scraper_router(url['url'], 
                                         url['domain'], 
                                         url['category'], 
-                                        session))
+                                        session,
+                                        file_lock,
+                                        OUTPUT_PATH))
         
         results = await asyncio.gather(*tasks)
 
@@ -119,3 +130,11 @@ async def run_scraper(session):
             status_updates.append((row_id, new_status))
 
         await update_url_status(status_updates)
+
+        success = await count_success_url
+        failed = await count_failed_url
+        logger.info('Scraping has been completed.')
+        logger.info(f'Scraping results: {success} success, {failed} failed')
+
+        if RESET_FIRST_PATTERNED_PAGINATION:
+            await reset_first_patterned_pagination_status()

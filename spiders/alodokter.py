@@ -40,7 +40,7 @@ def get_alodokter_pagination(config):
     pagination_data = []
     for page, max_page in zip(pages, max_pages):
         for i in range(1, max_page + 1):
-            pagination_url = f"https://www.{domain}{page}{i}"
+            pagination_url = f'https://www.{domain}{page}{i}'
 
             if page == '/page/':
                 category = 'article'
@@ -94,13 +94,13 @@ async def crawl_alodokter_page(url: str, domain: str, category: str, session):
 async def scrape_alodokter_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
     '''Extract the content and metadata of article or discussion URLs from a single URL for alodokter.com.
     
-    :param url: the pagination URL to be crawled.
+    :param url: the pagination URL to be scraped.
     :param domain: the domain of the website (alodokter.com).
-    :param category: the category of the content to be crawled.
+    :param category: the category of the content to be scraped.
     :param session: an instance of requests.AsyncSession for making http requests.
     :param file_lock: a lock for synchronizing file access.
     :param output_path: the path where the scraped data will be saved.
-    :return: a boolean indicating whether the crawling was successful or not.
+    :return: a boolean indicating whether the scraping was successful or not.
     '''
 
     html = await fetch_html(url, session)
@@ -116,7 +116,12 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
 
         # content
         content_html = soup.select_one('#postContent')
-        content_md = html_to_markdown(str(content_html)) if content_html else ''
+
+        if not content_html:
+            logger.warning(f'No content found in {url}')
+            return False
+        
+        content_md = html_to_markdown(str(content_html))
 
         # date
         last_updated_html = soup.select_one('div.date-article')
@@ -136,13 +141,17 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
         # content
         patient_content = detail_topic.get('member-topic-content', '') if detail_topic else ''
         patient_content = patient_content.replace('\u003c', '<').replace('\u003e', '>')
-        patient_content_md = html_to_markdown(patient_content)
-
+        
         doctor_topic = soup.select_one('doctor-topic')
         doctor_content = doctor_topic.get('doctor-topic-content', '') if doctor_topic else ''
         doctor_content = doctor_content.replace('\u003c', '<').replace('\u003e', '>')
+        
+        if not patient_content and not doctor_content:
+            logger.warning(f'No content found in {url}')
+            return False
+        
+        patient_content_md = html_to_markdown(patient_content)
         doctor_content_md = html_to_markdown(doctor_content)
-
         content_md = f'## Pasien:\n{patient_content_md}\n## Dokter:\n{doctor_content_md}'
 
         # date
@@ -152,10 +161,6 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
 
         # author
         author = doctor_topic.get('doctor-name-title', '') if doctor_topic else ''
-
-    if not title and not content_md:
-        logger.warning(f'No content found in {url}')
-        return False
 
     doc_id = str(uuid.uuid4())
     doc_hash = hashlib.sha256(content_md.encode('utf-8')).hexdigest()
@@ -182,7 +187,7 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
 
     # write payload to output file
     async with file_lock:
-        async with aiofiles.open(output_path, mode='a', encoding = 'utf-8') as f:
+        async with aiofiles.open(output_path, mode = 'a', encoding = 'utf-8') as f:
             await f.write(json.dumps(payload, ensure_ascii = False) + '\n')
-            
+
     return True
