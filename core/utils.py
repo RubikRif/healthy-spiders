@@ -1,14 +1,68 @@
 import asyncio
 from config import MAX_CONCURRENT
 from curl_cffi import requests
-from datetime import datetime
+from datetime import datetime, UTC
 from loguru import logger
 from markdownify import markdownify as md
 import random
+import re
 from urllib.parse import urlparse
 from transformers import AutoTokenizer
+from zoneinfo import ZoneInfo
 
 SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT)
+
+#============================================================
+
+# utility function to clean references from biofarma.co.id content markdown
+def clean_biofarma_markdown(text: str) -> str:
+    '''Clean references from biofarma.co.id content markdown.
+    
+    :param text: input biofarma.co.id markdown content string
+    :return: biofarma.co.id markdown content string without references
+    '''
+
+    if not text:
+        return ""
+
+    # regex pattern explanation:
+    # (?:#+|\*\*)*  -> ignore if started with ### or ** (optional)
+    # referen[sc]*i -> handling typo! 'referen' followed by 's' or 'c' or 'sc' then ended by 'i' (referensi, referensci, referenci)
+    # |reference    -> for english case
+    # (?:#+|\*\*|:|\s)* -> ignore symbols like :, **, or space at the end
+    # .*            -> take all remaining characters until the end of the document (using flags=re.DOTALL)
+
+    pattern = r'(?:#+|\*\*)*referen[sc]*i(?:#+|\*\*|:|\s)*.*|(?:#+|\*\*)*reference(?:#+|\*\*|:|\s)*.*'
+
+    text_cleaned = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+
+    return text_cleaned.strip()
+
+#============================================================
+
+# utility function to clean table of contents and references from halodoc.com content markdown
+def clean_halodoc_markdown(text):
+    '''Clean table of contents and references from halodoc.com content markdown.
+    
+    :param text: input halodoc.com markdown content string
+    :return: halodoc.com markdown content string without table of contents and references
+    '''
+
+    if not text:
+        return ""
+    
+    # delete a block of table of contents along with points below
+    toc_pattern = r'\*\*DAFTAR ISI\*\*.*?(?=\n##|\Z)'
+    text = re.sub(toc_pattern, '', text, flags=re.DOTALL)
+    
+    # delete references 
+    referensi_pattern = r'^######.*?(\n|\Z)'
+    text = re.sub(referensi_pattern, '', text, flags=re.MULTILINE)
+    
+    # clean whitespace
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    
+    return text.strip()
 
 #============================================================
 
@@ -102,3 +156,24 @@ def standardize_date(date: str) -> str:
             continue
     
     return date
+
+# utility function to convert unix timestamp to stanardized date
+def timestamp_to_date(timestamp: int | str) -> str:
+    '''Convert Unix Timestamp to a date with format dd/mm/yyyy.
+    
+    :param timestamp: unix timestamp in milisecods.
+    :return: Date string in dd/mm/yyyy format.
+
+    >>> timestamp_to_date(1764324449000)
+    '28/11/2025'
+
+    >>> timestamp_to_date('1690948704000')
+    '02/08/2023'
+    '''
+
+    timestamp = int(timestamp)
+
+    return (datetime
+            .fromtimestamp(timestamp / 1000, UTC)
+            .astimezone(ZoneInfo('Asia/Jakarta'))
+            .strftime('%d/%m/%Y'))

@@ -10,9 +10,9 @@ from urllib.parse import urljoin
 import uuid
 
 def get_bpom_pagination(config):
-    '''Generate pagination URLs data for pom.go.id based on the provided configuration.
+    '''Generate patterned pagination URLs to be crawled data for pom.go.id based on the provided configuration.
     
-    :param config: a dictionary containing the domain and pages to be crawled for each category.
+    :param config: a dictionary containing the domain and pages to be crawled for each category (also unpatterned page content to be scraped if there exists).
     :return: a list of tuples containing pagination url, domain, and category.
     
     Example of config:
@@ -21,10 +21,11 @@ def get_bpom_pagination(config):
         'pages_2b_crawled': {
             '/page/': 1,
             '/discussion/': 2
-        }
+        },
+        'contents_2b_scraped' : ...
     }
 
-    >> get_bpom_pagination(BPOM_CONFIG)
+    >>> get_bpom_pagination(BPOM_CONFIG)
     [('https://www.pom.go.id/page/1', 'pom.go.id', 'article'), 
      ('https://www.pom.go.id/discussion/1', 'pom.go.id', 'discussion'),
      ('https://www.pom.go.id/discussion/2', 'pom.go.id', 'discussion')]
@@ -38,7 +39,7 @@ def get_bpom_pagination(config):
     pagination_data = []
     for page, max_page in zip(pages, max_pages):
         for i in range(1, max_page + 1):
-            pagination_url = f"https://www.{domain}{page}{i}"
+            pagination_url = f'https://www.{domain}{page}{i}'
 
             if page == '/penjelasan-publik?page=':
                 category = 'public explanation'
@@ -52,7 +53,7 @@ def get_bpom_pagination(config):
     return pagination_data
 
 async def crawl_bpom_page(url: str, domain: str, category: str, session):
-    '''Extract the article or discussion URLs from a single pagination URL for pom.go.id.
+    '''Extract the public explanation, press release, or news URLs from a single pagination URL for pom.go.id.
     
     :param url: the pagination URL to be crawled.
     :param domain: the domain of the website (pom.go.id).
@@ -82,7 +83,7 @@ async def crawl_bpom_page(url: str, domain: str, category: str, session):
 
 
 async def scrape_bpom_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
-    '''Extract the content and metadata of article or discussion URLs from a single URL for pom.go.id.
+    '''Extract the content and metadata of public explanation, press release, or news URLs from a single URL for pom.go.id.
     
     :param url: the pagination URL to be scraped.
     :param domain: the domain of the website (pom.go.id).
@@ -116,11 +117,11 @@ async def scrape_bpom_content(url: str, domain: str, category: str, session, fil
     last_updated_html = soup.select_one('div.d-block p')
     last_updated = last_updated_html.get_text(strip = False) if last_updated_html else ''
     last_updated_splitted = last_updated.split('  ')
-    date = last_updated[0]
+    date = last_updated_splitted[0].strip()
     date = standardize_date(date)
 
     # author
-    author = last_updated[-1]
+    author = last_updated_splitted[-1].strip()
 
     doc_id = str(uuid.uuid4())
     doc_hash = hashlib.sha256(content_md.encode('utf-8')).hexdigest()

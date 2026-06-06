@@ -1,7 +1,7 @@
 import aiofiles
 from bs4 import BeautifulSoup
 from core.database import save_url
-from core.utils import count_token, fetch_html, html_to_markdown, standardize_date
+from core.utils import count_token, clean_biofarma_markdown, fetch_html, html_to_markdown, standardize_date
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -12,9 +12,9 @@ import uuid
 #============================================================
 
 def get_biofarma_pagination(config):
-    '''Generate pagination URLs data for biofarma.co.id based on the provided configuration.
+    '''Generate patterned pagination URLs to be crawled data for biofarma.co.id based on the provided configuration.
     
-    :param config: a dictionary containing the domain and pages to be crawled for each category.
+    :param config: a dictionary containing the domain and pages to be crawled for each category (also unpatterned page content to be scraped if there exists).
     :return: a list of tuples containing pagination url, domain, and category.
     
     Example of config:
@@ -23,10 +23,11 @@ def get_biofarma_pagination(config):
         'pages_2b_crawled': {
             '/page/': 1,
             '/discussion/': 2
-        }
+        },
+        'contents_2b_scraped' : ...
     }
 
-    >> get_biofarma_pagination(BIOFARMA_CONFIG)
+    >>> get_biofarma_pagination(BIOFARMA_CONFIG)
     [('https://www.biofarma.co.id/page/1', 'biofarma.co.id', 'article'), 
      ('https://www.biofarma.co.id/discussion/1', 'biofarma.co.id', 'discussion'),
      ('https://www.biofarma.co.id/discussion/2', 'biofarma.co.id', 'discussion')]
@@ -40,7 +41,7 @@ def get_biofarma_pagination(config):
     pagination_data = []
     for page, max_page in zip(pages, max_pages):
         for i in range(1, max_page + 1):
-            pagination_url = f"https://www.{domain}{page}{i}"
+            pagination_url = f'https://www.{domain}{page}{i}'
 
             category = 'article'
 
@@ -49,7 +50,7 @@ def get_biofarma_pagination(config):
     return pagination_data
 
 async def crawl_biofarma_page(url: str, domain: str, category: str, session):
-    '''Extract the article or discussion URLs from a single pagination URL for biofarma.co.id.
+    '''Extract the article URLs from a single pagination URL for biofarma.co.id.
     
     :param url: the pagination URL to be crawled.
     :param domain: the domain of the website (biofarma.co.id).
@@ -80,7 +81,7 @@ async def crawl_biofarma_page(url: str, domain: str, category: str, session):
 
 
 async def scrape_biofarma_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
-    '''Extract the content and metadata of article or discussion URLs from a single URL for biofarma.co.id.
+    '''Extract the content and metadata of article URLs from a single URL for biofarma.co.id.
     
     :param url: the pagination URL to be scraped.
     :param domain: the domain of the website (biofarma.co.id).
@@ -109,8 +110,7 @@ async def scrape_biofarma_content(url: str, domain: str, category: str, session,
         return False
     
     content_md = html_to_markdown(str(content_html))
-
-    # note: masih perlu cut bagian referensi (ntar tanya gemini dan coba di colab dulu)
+    content_md = clean_biofarma_markdown(content_md)
 
     # date
     last_updated_html = soup.select_one('div.date-heading')

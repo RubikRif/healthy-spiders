@@ -2,6 +2,7 @@ import aiosqlite
 from config import (ALODOKTER_CONFIG,
                     BIOFARMA_CONFIG,
                     BPOM_CONFIG,
+                    HALODOC_CONFIG,
                     HELLOSEHAT_CONFIG)
 from loguru import logger
 
@@ -62,7 +63,7 @@ async def get_pending_pagination(batch_size: int) -> list:
     :param batch_size: number of pagination urls to retrieve in one batch.
     :return: list of tuples (id, pagination_url, domain, category).
 
-    >> get_pending_pagination(5)
+    >>> get_pending_pagination(5)
     [(5, 'https://example1.com/page/3', 'example1.com', 'article'),
      (2, 'https://example3.com/page/5', 'example3.com', 'discussion'),
      (4, 'https://example2.com/page/1', 'example2.com', 'article'),
@@ -84,7 +85,7 @@ async def get_pending_pagination(batch_size: int) -> list:
     return rows
 
 async def update_pagination_status(task_results: list):
-    '''Update the status of pagination URLs in the pagination_queue table after batchcrawling.
+    '''Update the status of pagination URLs in the pagination_queue table after batch crawling.
     
     :param task_results: list of tuples (id, status) where id is the pagination url id and status is a string indicating the crawling result.
     '''
@@ -104,7 +105,7 @@ async def update_pagination_status(task_results: list):
 
 # scraper: url queue functions
 async def save_url(urls_data: list):
-    '''Save article URLs to be crawled along with their domain and category into the url_queue table.
+    '''Save URLs to be scraped along with their domain and category into the url_queue table.
     
     :param urls_data: list of tuples (url, domain, category).
     '''
@@ -119,12 +120,12 @@ async def save_url(urls_data: list):
         await db.commit()
 
 async def get_pending_url(batch_size: int) -> list:
-    '''Get a batch of pending article URLs from the url_queue table randomly.
+    '''Get a batch of pending URLs from the url_queue table randomly.
     
-    :param batch_size: number of article URLs to retrieve in one batch.
+    :param batch_size: number of to be scraped URLs to retrieve in one batch.
     :return: list of tuples (id, url, domain, category).
 
-    >> get_pending_url(5)
+    >>> get_pending_url(5)
     [(10, 'https://example1.com/article/123', 'example1.com', 'article'),
      (7, 'https://example3.com/discussion/456', 'example3.com', 'discussion'),
      (9, 'https://example2.com/article/789', 'example2.com', 'article'),
@@ -146,9 +147,9 @@ async def get_pending_url(batch_size: int) -> list:
     return rows
 
 async def update_url_status(task_results: list):
-    '''Update the status of article URLs in the url_queue table after batch crawling.
+    '''Update the status of URLs in the url_queue table after batch scraping.
     
-    :param task_results: list of tuples (id, status) where id is the url id and status is a string indicating the crawling result.
+    :param task_results: list of tuples (id, status) where id is the url id and status is a string indicating the scraping result.
     '''
     
     async with aiosqlite.connect(DB_PATH) as db:
@@ -228,5 +229,30 @@ async def reset_first_patterned_pagination_status():
                 SET status = 'pending'
                 WHERE pagination_url = ?
             ''', (first_patterned_pagination,))
+        
+        await db.commit()
+
+async def reset_all_halodoc_pagination():
+    '''Reset all of the halodoc.com pagination status to get new URL if there is an update in the website.'''
+
+    config = HALODOC_CONFIG
+    pages_2b_crawled = config['pages_2b_crawled']
+    pages = list(pages_2b_crawled.keys())
+    max_pages = list(pages_2b_crawled.values())
+
+    all_halodoc_pagination =  []
+    for page, max_page in zip(pages, max_pages):
+        for i in range(1, max_page + 1):
+            pagination_url = f"{page}{chr(96 + i)}" # convert 1 to 'a', 2 to 'b', etc.
+
+            all_halodoc_pagination.append(pagination_url)
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        for halodoc_pagination in all_halodoc_pagination:
+            await db.execute('''
+                UPDATE pagination_queue
+                SET status = 'pending'
+                WHERE pagination_url = ?
+            ''', (halodoc_pagination,))
         
         await db.commit()

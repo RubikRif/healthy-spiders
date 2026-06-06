@@ -12,9 +12,9 @@ import uuid
 #============================================================
 
 def get_alodokter_pagination(config):
-    '''Generate pagination URLs data for alodokter.com based on the provided configuration.
+    '''Generate patterned pagination URLs to be crawled data for alodokter.com based on the provided configuration.
     
-    :param config: a dictionary containing the domain and pages to be crawled for each category.
+    :param config: a dictionary containing the domain and pages to be crawled for each category (also unpatterned page content to be scraped if there exists).
     :return: a list of tuples containing pagination url, domain, and category.
     
     Example of config:
@@ -23,10 +23,11 @@ def get_alodokter_pagination(config):
         'pages_2b_crawled': {
             '/page/': 1,
             '/discussion/': 2
-        }
+        },
+        'contents_2b_scraped' : ...
     }
 
-    >> get_alodokter_pagination(ALODOKTER_CONFIG)
+    >>> get_alodokter_pagination(ALODOKTER_CONFIG)
     [('https://www.alodokter.com/page/1', 'alodokter.com', 'article'), 
      ('https://www.alodokter.com/discussion/1', 'alodokter.com', 'discussion'),
      ('https://www.alodokter.com/discussion/2', 'alodokter.com', 'discussion')]
@@ -75,7 +76,7 @@ async def crawl_alodokter_page(url: str, domain: str, category: str, session):
                         domain,
                         category) 
                         for card in cards if card.get('url-path', '')]
-    elif category == 'dicussion':
+    elif category == 'discussion':
         cards = soup.select('#topic-list card-topic')
         found_urls = [(f'https://www.{urljoin(domain, card.get('href'))}',
                        domain,
@@ -150,13 +151,13 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
             logger.warning(f'No content found in {url}')
             return False
         
-        patient_content_md = html_to_markdown(patient_content)
-        doctor_content_md = html_to_markdown(doctor_content)
+        patient_content_md = html_to_markdown(str(patient_content))
+        doctor_content_md = html_to_markdown(str(doctor_content))
         content_md = f'## Pasien:\n{patient_content_md}\n## Dokter:\n{doctor_content_md}'
 
         # date
         post_date = doctor_topic.get('post-date', '') if doctor_topic else ''
-        date = post_date.split(', ')[0]
+        date = post_date.split(', ')[0].strip()
         date = standardize_date(date)
 
         # author
