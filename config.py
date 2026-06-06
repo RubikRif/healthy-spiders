@@ -1,13 +1,23 @@
 # general config
 BATCH_SIZE = 100
 
+DB_PATH = "queue.db"
+
+# special for halodoc.com only
+HALODOC_TEMP_DATA_PATH = 'temp/halodoc_temp.jsonl'
+
 MAX_CONCURRENT = 5
 
 OUTPUT_PATH = 'output/output.jsonl'
 
 RESET_FIRST_PATTERNED_PAGINATION = True
 
+# special for halodoc.com only
 RESET_ALL_HALODOC_PAGINATION = True
+
+RESET_ALL_FAILED_PAGINATION = True
+
+RESET_ALL_FAILED_URL = True
 
 # website-specific configs
 # every website's config must contain:
@@ -19,8 +29,8 @@ RESET_ALL_HALODOC_PAGINATION = True
 ALODOKTER_CONFIG = {
 	'domain': 'alodokter.com',
 	'pages_2b_crawled': {
-		'/page/': 1, # article, max 1162
-		'/komunitas/diskusi/penyakit/page/': 1 # patient-doctor discussion, max 7423
+		'/page/': 2, # article, max 1162
+		'/komunitas/diskusi/penyakit/page/': 2 # patient-doctor discussion, max 7423
 	},
     'contents_2b_scraped': None
 } 
@@ -28,7 +38,7 @@ ALODOKTER_CONFIG = {
 BIOFARMA_CONFIG = {
 	'domain': 'biofarma.co.id',
 	'pages_2b_crawled': {
-		'/id/artikel-kesehatan/page/': 1 # article, max 19
+		'/id/artikel-kesehatan/page/': 2 # article, max 19
 	},
     'contents_2b_scraped': None
 } 
@@ -37,17 +47,17 @@ BPOM_CONFIG = {
 	'domain': 'pom.go.id',
 	'pages_2b_crawled': {
 		'/penjelasan-publik?page=': 1, # public explanation, max 10,
-		'/siaran-pers?page=': 0, # press release, max 25,
+		'/siaran-pers?page=': 1, # press release, max 25,
 		'/berita?page=': 0 # news, max 239
 	},
     'contents_2b_scraped': None
 } 
 
-# special
+# special for halodoc.com only
 HALODOC_CONFIG = {
 	'domain': 'halodoc.com',
 	'pages_2b_crawled': {
-		'https://customers.api.halodoc.com/magneto-api/cms/categories?per_page=100&search_text=': 1 
+		'https://customers.api.halodoc.com/magneto-api/cms/categories?per_page=100&search_text=': 2 
         # article, max 26 (a-z)
 	},
     'contents_2b_scraped': None
@@ -57,7 +67,7 @@ HELLOSEHAT_CONFIG = {
 	'domain': 'hellosehat.com',
 	'pages_2b_crawled': {
         '/parenting/?page=': 1, # max 243
-		'/kehamilan/kesuburan/?page=': 0, # max 28
+		'/kehamilan/kesuburan/?page=': 1, # max 28
 		'/kehamilan/kandungan/?page=': 0, # max 112
 		'/kehamilan/melahirkan/?page=': 1, # max 20
 		'/kehamilan/perawatan-ibu/?page=': 0, # max 11
@@ -89,6 +99,6 @@ HELLOSEHAT_CONFIG = {
 		'/sehat/?page=': 0 # max 180
 	},
     'contents_2b_scraped': {
-        'temp/obat_suplemen.txt': 1 # max 1391
+        'temp/obat_suplemen.txt': 2 # max 1391
 	}
 } 

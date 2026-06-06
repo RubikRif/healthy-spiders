@@ -2,13 +2,13 @@ import asyncio
 from config import MAX_CONCURRENT
 from curl_cffi import requests
 from datetime import datetime, UTC
+import json
 from loguru import logger
 from markdownify import markdownify as md
 import random
 import re
 from urllib.parse import urlparse
 from transformers import AutoTokenizer
-from zoneinfo import ZoneInfo
 
 SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT)
 
@@ -18,12 +18,12 @@ SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT)
 def clean_biofarma_markdown(text: str) -> str:
     '''Clean references from biofarma.co.id content markdown.
     
-    :param text: input biofarma.co.id markdown content string
-    :return: biofarma.co.id markdown content string without references
+    :param text: input biofarma.co.id markdown content string.
+    :return: biofarma.co.id markdown content string without references.
     '''
 
     if not text:
-        return ""
+        return ''
 
     # regex pattern explanation:
     # (?:#+|\*\*)*  -> ignore if started with ### or ** (optional)
@@ -41,15 +41,15 @@ def clean_biofarma_markdown(text: str) -> str:
 #============================================================
 
 # utility function to clean table of contents and references from halodoc.com content markdown
-def clean_halodoc_markdown(text):
+def clean_halodoc_markdown(text: str) -> str:
     '''Clean table of contents and references from halodoc.com content markdown.
     
-    :param text: input halodoc.com markdown content string
-    :return: halodoc.com markdown content string without table of contents and references
+    :param text: input halodoc.com markdown content string.
+    :return: halodoc.com markdown content string without table of contents and references.
     '''
 
     if not text:
-        return ""
+        return ''
     
     # delete a block of table of contents along with points below
     toc_pattern = r'\*\*DAFTAR ISI\*\*.*?(?=\n##|\Z)'
@@ -74,12 +74,30 @@ def count_token(text: str, tokenizer_path: str = 'temp/qwen3_tokenizer') -> int:
     :param tokenizer_path: path or name of the tokenizer to use (default is 'temp/qwen3_tokenizer').
     :return: number of tokens in the input text.
 
-    >> count_token('Halo, apa kabar?')
+    >>> count_token('Halo, apa kabar?')
     7
     '''
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
     tokens = tokenizer.tokenize(text)
     return len(tokens)
+
+# utility function to count total tokens in output file
+def count_total_token(output_path: str) -> int:
+    '''Count total tokens from scraping results in the output file.
+    
+    :param output_path: path or name of the output file.
+    :return: total tokens from scraping results in the output file.
+    '''
+
+    total_tokens = 0
+    with open(output_path, mode = 'r', encoding = 'utf-8') as f:
+        for line in f:
+            if line.strip():
+                line_json = json.loads(line)
+
+                total_tokens += line_json['metadata']['token_count']
+    
+    return total_tokens
 
 #============================================================
 
@@ -131,6 +149,7 @@ def html_to_markdown(html: str) -> str:
     :param html: input html string.
     :return: converted markdown string.
     '''
+    
     return md(html, heading_style = 'ATX', strip = ['a', 'img'])
 
 #============================================================
@@ -175,5 +194,4 @@ def timestamp_to_date(timestamp: int | str) -> str:
 
     return (datetime
             .fromtimestamp(timestamp / 1000, UTC)
-            .astimezone(ZoneInfo('Asia/Jakarta'))
             .strftime('%d/%m/%Y'))

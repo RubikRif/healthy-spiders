@@ -1,12 +1,11 @@
 import aiosqlite
-from config import (ALODOKTER_CONFIG,
+from config import (DB_PATH,
+                    ALODOKTER_CONFIG,
                     BIOFARMA_CONFIG,
                     BPOM_CONFIG,
                     HALODOC_CONFIG,
                     HELLOSEHAT_CONFIG)
 from loguru import logger
-
-DB_PATH = "queue.db"
 
 #============================================================
 
@@ -181,7 +180,8 @@ async def count_success_url() -> int:
                     WHERE status = 'success'
                 ''')
     
-        success = await cursor.fetchone()[0]
+        row = await cursor.fetchone()
+        success = row[0] if row else 0
 
     return success
 
@@ -199,16 +199,21 @@ async def count_failed_url():
                     WHERE status = 'failed'
                 ''')
     
-        failed = await cursor.fetchone()[0]
+        row = await cursor.fetchone()
+        failed = row[0] if row else 0
     
     return failed
+
+#============================================================
+
+# functions for reset status
 
 # reset first patterned pagination status
 async def reset_first_patterned_pagination_status():
     '''Reset the first patterned pagination status to get new URL if there is an update in the website.'''
 
-    configs = [ALODOKTER_CONFIG, BIOFARMA_CONFIG, BPOM_CONFIG, HELLOSEHAT_CONFIG] 
     # we don't include halodoc config, since its crawling-scraping mechanism is different
+    configs = [ALODOKTER_CONFIG, BIOFARMA_CONFIG, BPOM_CONFIG, HELLOSEHAT_CONFIG] 
 
     first_patterned_paginations = []
     for config in configs:
@@ -232,6 +237,7 @@ async def reset_first_patterned_pagination_status():
         
         await db.commit()
 
+# reset all halodoc pagination
 async def reset_all_halodoc_pagination():
     '''Reset all of the halodoc.com pagination status to get new URL if there is an update in the website.'''
 
@@ -240,15 +246,15 @@ async def reset_all_halodoc_pagination():
     pages = list(pages_2b_crawled.keys())
     max_pages = list(pages_2b_crawled.values())
 
-    all_halodoc_pagination =  []
+    all_halodoc_paginations =  []
     for page, max_page in zip(pages, max_pages):
         for i in range(1, max_page + 1):
             pagination_url = f"{page}{chr(96 + i)}" # convert 1 to 'a', 2 to 'b', etc.
 
-            all_halodoc_pagination.append(pagination_url)
+            all_halodoc_paginations.append(pagination_url)
     
     async with aiosqlite.connect(DB_PATH) as db:
-        for halodoc_pagination in all_halodoc_pagination:
+        for halodoc_pagination in all_halodoc_paginations:
             await db.execute('''
                 UPDATE pagination_queue
                 SET status = 'pending'
@@ -256,3 +262,47 @@ async def reset_all_halodoc_pagination():
             ''', (halodoc_pagination,))
         
         await db.commit()
+
+# reset all failed pagination
+async def reset_all_failed_pagination():
+    '''Reset all paginations with failed status to pending so that they can be re-crawled when the next main script run.'''
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute('''
+                    UPDATE pagination_queue
+                    SET status = 'pending'
+                    WHERE status = 'failed'
+                ''')
+        
+        rows_affected = cursor.rowcount
+
+        await db.commit()
+    
+    if rows_affected > 0:
+        logger.info(f"Successfully reset {rows_affected} failed paginations status to 'pending'.")
+    else:
+        logger.info('There is no failed pagination to reset.')
+    
+    return rows_affected
+
+# reset all failed url
+async def reset_all_failed_url():
+    '''Reset all URLs with failed status to pending so that they can be re-scraped when the next main script run.'''
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute('''
+                    UPDATE url_queue
+                    SET status = 'pending'
+                    WHERE status = 'failed'
+                ''')
+        
+        rows_affected = cursor.rowcount
+
+        await db.commit()
+    
+    if rows_affected > 0:
+        logger.info(f"Successfully reset {rows_affected} failed URLs status to 'pending'.")
+    else:
+        logger.info('There is no failed URL to reset.')
+
+    return rows_affected

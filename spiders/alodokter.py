@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from loguru import logger
-from urllib.parse import urljoin
 import uuid
 
 #============================================================
@@ -54,7 +53,7 @@ def get_alodokter_pagination(config):
 
 
 
-async def crawl_alodokter_page(url: str, domain: str, category: str, session):
+async def crawl_alodokter_page(url: str, domain: str, category: str, session) -> bool:
     '''Extract the article or discussion URLs from a single pagination URL for alodokter.com.
     
     :param url: the pagination URL to be crawled.
@@ -72,13 +71,13 @@ async def crawl_alodokter_page(url: str, domain: str, category: str, session):
 
     if category == 'article':
         cards = soup.select('card-post-index')
-        found_urls = [(f'https://www.{urljoin(domain, card.get('url-path'))}',
+        found_urls = [(f'https://www.{domain}{card.get('url-path')}',
                         domain,
                         category) 
                         for card in cards if card.get('url-path', '')]
     elif category == 'discussion':
         cards = soup.select('#topic-list card-topic')
-        found_urls = [(f'https://www.{urljoin(domain, card.get('href'))}',
+        found_urls = [(f'https://www.{domain}{card.get('href')}',
                        domain,
                        category) 
                        for card in cards if card.get('href', '')]
@@ -92,7 +91,7 @@ async def crawl_alodokter_page(url: str, domain: str, category: str, session):
 
 
 
-async def scrape_alodokter_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
+async def scrape_alodokter_content(url: str, domain: str, category: str, session, file_lock, output_path: str) -> bool:
     '''Extract the content and metadata of article or discussion URLs from a single URL for alodokter.com.
     
     :param url: the pagination URL to be scraped.
@@ -141,11 +140,11 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
 
         # content
         patient_content = detail_topic.get('member-topic-content', '') if detail_topic else ''
-        patient_content = patient_content.replace('\u003c', '<').replace('\u003e', '>')
+        patient_content = patient_content.replace('\\u003c', '<').replace('\\u003e', '>')
         
         doctor_topic = soup.select_one('doctor-topic')
         doctor_content = doctor_topic.get('doctor-topic-content', '') if doctor_topic else ''
-        doctor_content = doctor_content.replace('\u003c', '<').replace('\u003e', '>')
+        doctor_content = doctor_content.replace('\\u003c', '<').replace('\\u003e', '>')
         
         if not patient_content and not doctor_content:
             logger.warning(f'No content found in {url}')

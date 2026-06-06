@@ -3,6 +3,8 @@ from config import (BATCH_SIZE,
                     OUTPUT_PATH, 
                     RESET_FIRST_PATTERNED_PAGINATION,
                     RESET_ALL_HALODOC_PAGINATION,
+                    RESET_ALL_FAILED_PAGINATION,
+                    RESET_ALL_FAILED_URL,
                     ALODOKTER_CONFIG, 
                     BIOFARMA_CONFIG, 
                     BPOM_CONFIG, 
@@ -17,9 +19,12 @@ from core.database import (init_db,
                            count_success_url,
                            count_failed_url,
                            reset_first_patterned_pagination_status,
-                           reset_all_halodoc_pagination)
-from loguru import logger
+                           reset_all_halodoc_pagination,
+                           reset_all_failed_pagination,
+                           reset_all_failed_url)
 from core.router import crawler_router, scraper_router
+from core.utils import count_total_token
+from loguru import logger
 from spiders.alodokter import get_alodokter_pagination
 from spiders.biofarma import get_biofarma_pagination
 from spiders.bpom import get_bpom_pagination
@@ -56,7 +61,7 @@ async def run_crawler(session):
         batch_pending_paginations = await get_pending_pagination(BATCH_SIZE)
 
         if not batch_pending_paginations:
-            logger.info('All pagination URLs have been crawled.')
+            logger.info('All pagination URLs have been crawled. Crawling has been completed.')
             return
         
         logger.info(f'Crawling {len(batch_pending_paginations)} pending pagination URLs...')
@@ -83,8 +88,6 @@ async def run_crawler(session):
     
         await update_pagination_status(status_updates)
 
-        logger.info('Crawling has been completed.')
-
 #============================================================
 
 # main scraper function
@@ -99,21 +102,42 @@ async def run_scraper(session):
 
     # special treatment for obat-suplemen from hellosehat.com
     # update the obat-suplemen
-    await update_obat_suplemen(HELLOSEHAT_CONFIG)
+    await update_obat_suplemen(HELLOSEHAT_CONFIG, session)
 
     while True:
         # get a batch of pending urls from the database
         batch_pending_urls = await get_pending_url(BATCH_SIZE)
 
         if not batch_pending_urls:
-            logger.info('All URLs have been scraped.')
+            logger.info('All URLs have been scraped. Scraping has been completed.')
+
+            success = await count_success_url()
+            failed = await count_failed_url()
+
+            total_tokens = count_total_token(OUTPUT_PATH)
+            
+            logger.info(f'Scraping cumulative results: {success} success, {failed} failed')
+            logger.info(f'Total tokens: {total_tokens}')
+
+            if RESET_FIRST_PATTERNED_PAGINATION:
+                await reset_first_patterned_pagination_status()
+            
+            if RESET_ALL_HALODOC_PAGINATION:
+                await reset_all_halodoc_pagination()
+
+            if RESET_ALL_FAILED_PAGINATION:
+                await reset_all_failed_pagination()
+            
+            if RESET_ALL_FAILED_URL:
+                await reset_all_failed_url()
+
             return
         
         logger.info(f'Scraping {len(batch_pending_urls)} pending URLs...')
 
         # dispatch scraping tasks to the appropriate scraper functions via the router
         tasks = []
-        file_lock = asyncio.Lock
+        file_lock = asyncio.Lock()
         for url in batch_pending_urls:
             tasks.append(scraper_router(url[1], 
                                         url[2], 
@@ -131,15 +155,4 @@ async def run_scraper(session):
             new_status = 'success' if is_success else 'failed'
             status_updates.append((row_id, new_status))
 
-        await update_url_status(status_updates)
-
-        success = await count_success_url
-        failed = await count_failed_url
-        logger.info('Scraping has been completed.')
-        logger.info(f'Scraping results: {success} success, {failed} failed')
-
-        if RESET_FIRST_PATTERNED_PAGINATION:
-            await reset_first_patterned_pagination_status()
-        
-        if RESET_ALL_HALODOC_PAGINATION:
-            await reset_all_halodoc_pagination()
+        await update_url_status(status_updates)        

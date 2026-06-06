@@ -1,16 +1,15 @@
 import aiofiles
+from config import HALODOC_TEMP_DATA_PATH
 from core.database import save_url
-from core.utils import (count_token,
-                        clean_halodoc_markdown,
-                        fetch_html,
-                        html_to_markdown,
-                        timestamp_to_date)
+from core.utils import count_token, clean_halodoc_markdown, fetch_html, html_to_markdown, timestamp_to_date
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from loguru import logger
 from pathlib import Path
 import uuid
+
+#============================================================
 
 def get_halodoc_pagination(config):
     '''Generate patterned pagination URLs to be crawled data for halodoc.com articles based on the provided configuration.
@@ -50,9 +49,9 @@ def get_halodoc_pagination(config):
     
     return pagination_data
 
-# keknya ntar text dalam json hasil crawling api halodoc disimpen ke output/halodoc_temp.txt
-# selalu reset semua pagination halodoc aja kali ya?
-async def crawl_halodoc_page(url: str, domain: str, category: str, session):
+
+
+async def crawl_halodoc_page(url: str, domain: str, category: str, session) -> bool:
     '''Extract the article URLs from a single pagination URL for halodoc.com.
     
     :param url: the pagination URL to be crawled.
@@ -74,7 +73,7 @@ async def crawl_halodoc_page(url: str, domain: str, category: str, session):
     # save the urls to url_queue table in the database
     # and save the main component data to temp/halodoc_temp.jsonl if the data doesn't already exist in the file
     found_urls = []
-    temp_data_path = Path('temp/halodoc_temp.jsonl')
+    temp_data_path = Path(HALODOC_TEMP_DATA_PATH)
     temp_data_path.touch(exist_ok=True)
 
     current_urls = set()
@@ -105,7 +104,7 @@ async def crawl_halodoc_page(url: str, domain: str, category: str, session):
 
     return True
 
-async def scrape_halodoc_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
+async def scrape_halodoc_content(url: str, domain: str, category: str, session, file_lock, output_path: str) -> bool:
     '''Extract the content and metadata of article URLs from a single URL for halodoc.com.
     
     :param url: the pagination URL to be scraped.
@@ -117,8 +116,7 @@ async def scrape_halodoc_content(url: str, domain: str, category: str, session, 
     :return: a boolean indicating whether the scraping was successful or not.
     '''
 
-    temp_data_path = 'temp/halodoc_temp.jsonl'
-    with open(temp_data_path, mode = 'r', encoding = 'utf-8') as f:
+    with open(HALODOC_TEMP_DATA_PATH, mode = 'r', encoding = 'utf-8') as f:
         data = next((json.loads(line) for line in f if line.strip() if json.loads(line)['source'] == url), None)
 
     if not data:
@@ -134,8 +132,6 @@ async def scrape_halodoc_content(url: str, domain: str, category: str, session, 
     
     content_md = html_to_markdown(str(content))
     content_md = clean_halodoc_markdown(content_md)
-
-    # note: perlu bersihin daftar isi dan referensi
 
     # title
     title = data['name']

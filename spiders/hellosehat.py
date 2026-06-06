@@ -7,7 +7,6 @@ import hashlib
 import json
 from loguru import logger
 from pathlib import Path
-from urllib.parse import urljoin
 import uuid
 
 #============================================================
@@ -52,10 +51,12 @@ def get_hellosehat_pagination(config):
 
 
 
-async def update_obat_suplemen(config):
+async def update_obat_suplemen(config, session):
     '''Add new obat suplemen URL if there is an update and take max pages to be scraped from config.
     
-    :param config: a dictionary containing the website domain and the number of pages to be crawled for each category (also unpatterned page content to be scraped if there exists).'''
+    :param config: a dictionary containing the website domain and the number of pages to be crawled for each category (also unpatterned page content to be scraped if there exists).
+    :param session: an instance of requests.AsyncSession for making http requests.
+    '''
     
     obat_suplemen_key = list(config['contents_2b_scraped'].keys())[0]
 
@@ -69,7 +70,7 @@ async def update_obat_suplemen(config):
             current_obat_suplemen.add(line.strip())
     
     # add new url if there is an update
-    html = await fetch_html('https://hellosehat.com/obat-suplemen/')
+    html = await fetch_html('https://hellosehat.com/obat-suplemen/', session)
     if not html:
         return 
     
@@ -83,7 +84,7 @@ async def update_obat_suplemen(config):
     
     # add to the url table in the database
     max_page = config['contents_2b_scraped'][obat_suplemen_key]
-    obat_suplemen_urls = [(f'https://{urljoin("hellosehat.com", obat_suplemen)}', 
+    obat_suplemen_urls = [(f'https://hellosehat.com{obat_suplemen}', 
                            'hellosehat.com', 
                            'article') 
                            for obat_suplemen in list(new_obat_suplemen)[:max_page]]
@@ -99,7 +100,7 @@ async def update_obat_suplemen(config):
 
 
 
-async def crawl_hellosehat_page(url: str, domain: str, category: str, session):
+async def crawl_hellosehat_page(url: str, domain: str, category: str, session) -> bool:
     '''Extract the article URLs from a single pagination URL for hellosehat.com.
     
     :param url: the pagination URL to be crawled.
@@ -117,7 +118,7 @@ async def crawl_hellosehat_page(url: str, domain: str, category: str, session):
 
     cards = soup.select('div.banner a')
 
-    found_urls = [(f'https://{urljoin(domain, card.get('href'))}',
+    found_urls = [(f'https://{domain}{card.get('href')}',
                    domain,
                    category) 
                    for card in cards if card.get('href', '')]

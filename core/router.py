@@ -31,6 +31,7 @@ async def crawler_router(url: str, domain: str, category: str, session):
     :param session: an instance of requests.AsyncSession for making http requests.
     :return: a boolean indicating whether the crawling was successful or not.
     '''
+
     if domain in FUNCTION_REGISTRY:
         crawler_func = FUNCTION_REGISTRY[domain]['crawler']
 
@@ -54,6 +55,7 @@ async def scraper_router(url: str, domain: str, category: str, session, file_loc
     :param output_path: the path where the scraped data will be saved.
     :return: a boolean indicating whether the scraping was successful or not.
     '''
+    
     if domain in FUNCTION_REGISTRY:
         scraper_func = FUNCTION_REGISTRY[domain]['scraper']
 

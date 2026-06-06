@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from loguru import logger
-from urllib.parse import urljoin
 import uuid
 
 #============================================================
@@ -49,7 +48,9 @@ def get_biofarma_pagination(config):
     
     return pagination_data
 
-async def crawl_biofarma_page(url: str, domain: str, category: str, session):
+
+
+async def crawl_biofarma_page(url: str, domain: str, category: str, session) -> bool:
     '''Extract the article URLs from a single pagination URL for biofarma.co.id.
     
     :param url: the pagination URL to be crawled.
@@ -66,7 +67,7 @@ async def crawl_biofarma_page(url: str, domain: str, category: str, session):
     soup = BeautifulSoup(html, 'html.parser')
 
     cards = soup.select('div.card a')
-    found_urls = [(f'https://www.{urljoin(domain, card.get('href'))}',
+    found_urls = [(f'https://www.{domain}{card.get('href')}',
                    domain,
                    category) 
                    for card in cards if card.get('href', '')]
@@ -80,7 +81,7 @@ async def crawl_biofarma_page(url: str, domain: str, category: str, session):
 
 
 
-async def scrape_biofarma_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
+async def scrape_biofarma_content(url: str, domain: str, category: str, session, file_lock, output_path: str) -> bool:
     '''Extract the content and metadata of article URLs from a single URL for biofarma.co.id.
     
     :param url: the pagination URL to be scraped.

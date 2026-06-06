@@ -6,8 +6,9 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from loguru import logger
-from urllib.parse import urljoin
 import uuid
+
+#============================================================
 
 def get_bpom_pagination(config):
     '''Generate patterned pagination URLs to be crawled data for pom.go.id based on the provided configuration.
@@ -52,7 +53,9 @@ def get_bpom_pagination(config):
     
     return pagination_data
 
-async def crawl_bpom_page(url: str, domain: str, category: str, session):
+
+
+async def crawl_bpom_page(url: str, domain: str, category: str, session) -> bool:
     '''Extract the public explanation, press release, or news URLs from a single pagination URL for pom.go.id.
     
     :param url: the pagination URL to be crawled.
@@ -69,7 +72,7 @@ async def crawl_bpom_page(url: str, domain: str, category: str, session):
     soup = BeautifulSoup(html, 'html.parser')
 
     cards = soup.select('a.py-3')
-    found_urls = [(f'https://www.{urljoin(domain, card.get('href'))}',
+    found_urls = [(f'https://www.{domain}{card.get('href')}',
                    domain,
                    category) 
                    for card in cards if card.get('href', '')]
@@ -82,7 +85,8 @@ async def crawl_bpom_page(url: str, domain: str, category: str, session):
         return False
 
 
-async def scrape_bpom_content(url: str, domain: str, category: str, session, file_lock, output_path: str):
+
+async def scrape_bpom_content(url: str, domain: str, category: str, session, file_lock, output_path: str) -> bool:
     '''Extract the content and metadata of public explanation, press release, or news URLs from a single URL for pom.go.id.
     
     :param url: the pagination URL to be scraped.
