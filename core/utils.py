@@ -14,6 +14,30 @@ SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT)
 
 #============================================================
 
+# utility function to clean alodokter.com content markdown result for discussion category
+def clean_alodokter_discussion(text: str) -> str:
+    '''
+    Clean alodokter.com content markdown result for dicussion category.
+
+    :param text: input alodokter.com markdown content string for discussion category.
+    :return: clean alodokter.com markdown content string for discussion category.
+    '''
+
+    text = text.replace('\\n', '\n').replace('\"', '\n')
+    
+    lines = text.split('\n')
+    cleaned_lines = [line.strip() for line in lines]
+
+    text = '\n'.join(cleaned_lines)
+
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    text = re.sub(r'(\d+)\.\s*\n\s*', r'\1. ', text)
+
+    return text.strip()
+
+#============================================================
+
 # utility function to clean references from biofarma.co.id content markdown
 def clean_biofarma_markdown(text: str) -> str:
     '''Clean references from biofarma.co.id content markdown.
@@ -34,9 +58,9 @@ def clean_biofarma_markdown(text: str) -> str:
 
     pattern = r'(?:#+|\*\*)*referen[sc]*i(?:#+|\*\*|:|\s)*.*|(?:#+|\*\*)*reference(?:#+|\*\*|:|\s)*.*'
 
-    text_cleaned = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
 
-    return text_cleaned.strip()
+    return text.strip()
 
 #============================================================
 

@@ -1,11 +1,12 @@
 import aiofiles
 from bs4 import BeautifulSoup
 from core.database import save_url
-from core.utils import count_token, fetch_html, html_to_markdown, standardize_date
+from core.utils import clean_alodokter_discussion, count_token, fetch_html, html_to_markdown, standardize_date
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from loguru import logger
+import re
 import uuid
 
 #============================================================
@@ -153,6 +154,7 @@ async def scrape_alodokter_content(url: str, domain: str, category: str, session
         patient_content_md = html_to_markdown(str(patient_content))
         doctor_content_md = html_to_markdown(str(doctor_content))
         content_md = f'## Pasien:\n{patient_content_md}\n## Dokter:\n{doctor_content_md}'
+        content_md = clean_alodokter_discussion(content_md)
 
         # date
         post_date = doctor_topic.get('post-date', '') if doctor_topic else ''
